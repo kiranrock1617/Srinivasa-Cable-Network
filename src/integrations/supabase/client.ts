@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { brokeredPreviewStorage } from './previewAuthStorage';
 
+const SUPABASE_URL = 'https://lulicxygpxsarxwdkhiv.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_VsfL9LAc6AoLUSKy562Ovw_JkAKu3tu';
+
 function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith('sb_publishable_') || value.startsWith('sb_secret_');
 }
@@ -27,33 +30,7 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
   };
 }
 
-function cleanEnvValue(val: string | undefined, fallback: string): string {
-  if (!val) return fallback;
-  const cleaned = val.replace(/["']/g, '').trim();
-  return cleaned.startsWith('http') || cleaned.startsWith('sb_') || cleaned.startsWith('eyJ')
-    ? cleaned
-    : fallback;
-}
-
 function createSupabaseClient() {
-  const rawUrl =
-    import.meta.env?.VITE_SUPABASE_URL ||
-    (typeof process !== 'undefined' ? process.env?.SUPABASE_URL : undefined);
-
-  const rawKey =
-    import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY ||
-    (typeof process !== 'undefined' ? process.env?.SUPABASE_PUBLISHABLE_KEY : undefined);
-
-  const SUPABASE_URL = cleanEnvValue(
-    rawUrl,
-    'https://lulicxygpxsarxwdkhiv.supabase.co'
-  );
-
-  const SUPABASE_PUBLISHABLE_KEY = cleanEnvValue(
-    rawKey,
-    'sb_publishable_VsfL9LAc6AoLUSKy562Ovw_JkAKu3tu'
-  );
-
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: {
       fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY),
