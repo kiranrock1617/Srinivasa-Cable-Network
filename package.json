@@ -9,10 +9,7 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write .",
-    "postinstall": "node -e \"const fs=require('fs');const p='node_modules/tr46/index.js';try{const s=fs.readFileSync(p,'utf8');const n=s.replace('require(\\\"punycode/\\\")','require(\\\"punycode\\\")');if(n!==s){fs.writeFileSync(p,n);console.log('patched tr46 punycode import')}}catch(e){}\"",
-    "postbuild": "node postbuild.mjs"
-  
+    "format": "prettier --write ."
   },
 
   "dependencies": {
