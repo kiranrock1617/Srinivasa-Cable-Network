@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
@@ -60,10 +60,8 @@ import {
   X,
 } from "lucide-react";
 
-
-
 export const Route = createFileRoute("/")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(customersListQuery),
+  // Removed SSR loader so Cloudflare Worker never hits Error 1102 CPU limits
   component: CustomersPage,
   pendingComponent: CustomersPending,
   pendingMs: 200,
@@ -150,7 +148,7 @@ function CustomersPending() {
 }
 
 function CustomersPage() {
-  const { data: customers } = useSuspenseQuery(customersListQuery);
+  const { data: customers = [], isLoading } = useQuery(customersListQuery);
   const [query, setQuery] = useState("");
   const [filterBy, setFilterBy] = useState<"default" | "name" | "serialNo" | "vcNo" | "phone" | "address">("default");
   const [toDelete, setToDelete] = useState<{ id: string; name: string } | null>(null);
@@ -177,7 +175,6 @@ function CustomersPage() {
     }
   };
 
-
   const deleteMut = useMutation({
     mutationFn: (id: string) => deleteFn({ data: { id } }),
     onSuccess: () => {
@@ -187,7 +184,6 @@ function CustomersPage() {
     },
     onError: (e) => toast.error(toUserMessage(e, "Failed to delete")),
   });
-
 
   // Ascending serial numbers assigned from the stored order (createdAt ASC)
   const numbered = useMemo(() => withSerialNumbers(customers), [customers]);
@@ -216,8 +212,6 @@ function CustomersPage() {
       }
     });
   }, [numbered, query, filterBy]);
-
-
 
   const handleCsv = () => {
     if (filtered.length === 0) {
@@ -251,7 +245,9 @@ function CustomersPage() {
     toast.success(`Exported ${filtered.length} rows to JSON`);
   };
 
-
+  if (isLoading) {
+    return <CustomersPending />;
+  }
 
   return (
     <AppShell>
@@ -386,8 +382,6 @@ function CustomersPage() {
         </div>
       </div>
 
-
-
       <>
       {/* Mobile card list */}
       <div className="grid gap-3 sm:hidden">
@@ -482,10 +476,8 @@ function CustomersPage() {
               </div>
             </article>
           ))
-
         )}
       </div>
-
 
       {/* Desktop table */}
       <div className="glass-surface hidden overflow-hidden rounded-2xl shadow-[0_10px_40px_-20px_oklch(0.62_0.19_256/0.3)] ring-1 ring-white/60 sm:block dark:ring-white/10">
@@ -613,10 +605,7 @@ function CustomersPage() {
           </TableBody>
         </Table>
       </div>
-
       </>
-
-
 
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
         <AlertDialogContent className="glass-strong">

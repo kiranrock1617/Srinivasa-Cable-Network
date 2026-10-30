@@ -17,15 +17,42 @@ type CustomerRow = {
   updated_at: string;
 };
 
-function getClient() {
-  const url = "https://lulicxygpxsarxwdkhiv.supabase.co";
-  const key = "sb_publishable_VsfL9LAc6AoLUSKy562Ovw_JkAKu3tu";
-  return createClient<Database>(url, key, {
-    auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
-  });
+const SUPABASE_URL = "https://lulicxygpxsarxwdkhiv.supabase.co";
+const SUPABASE_KEY = "sb_publishable_VsfL9LAc6AoLUSKy562Ovw_JkAKu3tu";
+
+function createSupabaseFetch(supabaseKey: string): typeof fetch {
+  return (input, init) => {
+    const headers = new Headers(
+      typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined,
+    );
+    if (init?.headers) {
+      new Headers(init.headers).forEach((value, key) => headers.set(key, value));
+    }
+    if (
+      (supabaseKey.startsWith("sb_publishable_") || supabaseKey.startsWith("sb_secret_")) &&
+      headers.get("Authorization") === `Bearer ${supabaseKey}`
+    ) {
+      headers.delete("Authorization");
+    }
+    headers.set("apikey", supabaseKey);
+    return fetch(input, { ...init, headers });
+  };
 }
 
-function serialize(row: CustomerRow): Customer {
+// Reuse a single client instance to save Cloudflare Worker CPU time
+let _client: ReturnType<typeof createClient<Database>> | undefined;
+
+function getClient() {
+  if (!_client) {
+    _client = createClient<Database>(SUPABASE_URL, SUPABASE_KEY, {
+      global: { fetch: createSupabaseFetch(SUPABASE_KEY) },
+      auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+    });
+  }
+  return _client;
+}
+
+export function serializeCustomer(row: CustomerRow): Customer {
   return {
     id: row.id,
     serialNo: typeof row.serial_no === "number" ? row.serial_no : null,
@@ -46,11 +73,11 @@ export const listCustomers = createServerFn({ method: "GET" }).handler(async () 
     const supabase = getClient();
     const { data, error } = await supabase
       .from("customers" as any)
-      .select("*")
+      .select("id, serial_no, name, vc_no, address, phone, created_at, updated_at")
       .order("serial_no", { ascending: true })
       .order("created_at", { ascending: true });
     if (error) throw error;
-    return ((data ?? []) as unknown as CustomerRow[]).map(serialize);
+    return ((data ?? []) as unknown as CustomerRow[]).map(serializeCustomer);
   } catch (e) {
     console.error("[listCustomers]", e);
     throw toServerError(e, "Could not load customers");
@@ -68,7 +95,7 @@ export const getCustomer = createServerFn({ method: "GET" })
         .eq("id", data.id)
         .maybeSingle();
       if (error) throw error;
-      return row ? serialize(row as unknown as CustomerRow) : null;
+      return row ? serializeCustomer(row as unknown as CustomerRow) : null;
     } catch (e) {
       console.error("[getCustomer]", e);
       throw toServerError(e, "Could not load customer");
@@ -100,7 +127,7 @@ export const createCustomer = createServerFn({ method: "POST" })
         .select("*")
         .single();
       if (error) throw error;
-      return serialize(row as unknown as CustomerRow);
+      return serializeCustomer(row as unknown as CustomerRow);
     } catch (e: any) {
       if (e?.code === "23505") throw new Error("A customer with this Serial No or VC No already exists");
       console.error("[createCustomer]", e);
@@ -138,7 +165,7 @@ export const updateCustomer = createServerFn({ method: "POST" })
         .maybeSingle();
       if (error) throw error;
       if (!row) throw new Error("Customer not found");
-      return serialize(row as unknown as CustomerRow);
+      return serializeCustomer(row as unknown as CustomerRow);
     } catch (e: any) {
       if (e?.code === "23505") throw new Error("A customer with this Serial No or VC No already exists");
       if (e instanceof Error && /not found/i.test(e.message)) throw e;
