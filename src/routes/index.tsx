@@ -35,12 +35,6 @@ import { RouteErrorBoundary } from "@/components/route-error-boundary";
 import { customersListQuery } from "@/lib/customers.queries";
 import { deleteCustomer } from "@/lib/customers.functions";
 import { toUserMessage } from "@/lib/errors";
-import {
-  exportCustomersCsv,
-  exportCustomersJson,
-  exportCustomersPdf,
-  withSerialNumbers,
-} from "@/lib/customer-export";
 
 import {
   Check,
@@ -60,8 +54,15 @@ import {
   X,
 } from "lucide-react";
 
+function withSerialNumbers<T extends { serialNo?: number | null }>(list: T[]) {
+  return list.map((item, idx) => ({
+    ...item,
+    serialNo: typeof item.serialNo === "number" ? item.serialNo : idx + 1,
+  }));
+}
+
 export const Route = createFileRoute("/")({
-  // Removed SSR loader so Cloudflare Worker never hits Error 1102 CPU limits
+  ssr: false,
   component: CustomersPage,
   pendingComponent: CustomersPending,
   pendingMs: 200,
@@ -185,10 +186,8 @@ function CustomersPage() {
     onError: (e) => toast.error(toUserMessage(e, "Failed to delete")),
   });
 
-  // Ascending serial numbers assigned from the stored order (createdAt ASC)
   const numbered = useMemo(() => withSerialNumbers(customers), [customers]);
 
-  // Search — default: name + serial (substring). Phone/VC: exact match. Others: substring on chosen field.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return numbered;
@@ -213,12 +212,13 @@ function CustomersPage() {
     });
   }, [numbered, query, filterBy]);
 
-  const handleCsv = () => {
+  const handleCsv = async () => {
     if (filtered.length === 0) {
       toast.info("No customers to export");
       return;
     }
-    exportCustomersCsv(filtered);
+    const { exportCustomersCsv } = await import("@/lib/customer-export");
+    exportCustomersCsv(filtered as any);
     toast.success(`Exported ${filtered.length} rows to CSV`);
   };
 
@@ -228,7 +228,8 @@ function CustomersPage() {
       return;
     }
     try {
-      await exportCustomersPdf(filtered);
+      const { exportCustomersPdf } = await import("@/lib/customer-export");
+      await exportCustomersPdf(filtered as any);
       toast.success(`Exported ${filtered.length} rows to PDF`);
     } catch (e) {
       console.error(e);
@@ -236,12 +237,13 @@ function CustomersPage() {
     }
   };
 
-  const handleJson = () => {
+  const handleJson = async () => {
     if (filtered.length === 0) {
       toast.info("No customers to export");
       return;
     }
-    exportCustomersJson(filtered);
+    const { exportCustomersJson } = await import("@/lib/customer-export");
+    exportCustomersJson(filtered as any);
     toast.success(`Exported ${filtered.length} rows to JSON`);
   };
 
@@ -252,7 +254,6 @@ function CustomersPage() {
   return (
     <AppShell>
       <div className="mb-6 flex flex-col gap-5 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
-        {/* Left: heading + search */}
         <div className="min-w-0 flex-1 space-y-4">
           <div>
             <h1 className="truncate text-2xl font-semibold tracking-tight sm:text-[30px]">
@@ -341,7 +342,6 @@ function CustomersPage() {
           </div>
         </div>
 
-        {/* Right: actions */}
         <div className="flex flex-wrap items-center justify-end gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -383,7 +383,6 @@ function CustomersPage() {
       </div>
 
       <>
-      {/* Mobile card list */}
       <div className="grid gap-3 sm:hidden">
         {filtered.length === 0 ? (
           <div className="glass-surface rounded-2xl p-8 text-center text-sm text-muted-foreground">
@@ -479,7 +478,6 @@ function CustomersPage() {
         )}
       </div>
 
-      {/* Desktop table */}
       <div className="glass-surface hidden overflow-hidden rounded-2xl shadow-[0_10px_40px_-20px_oklch(0.62_0.19_256/0.3)] ring-1 ring-white/60 sm:block dark:ring-white/10">
         <Table>
           <TableHeader>
