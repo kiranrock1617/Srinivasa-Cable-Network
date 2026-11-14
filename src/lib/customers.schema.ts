@@ -18,7 +18,7 @@ export const customerInputSchema = z.object({
   vcNo: z
     .string()
     .trim()
-    .length(20, "VC No must be exactly 20 characters"),
+    .min(10, "VC No must be greater than 10 characters"),
   address: z
     .string()
     .trim()
