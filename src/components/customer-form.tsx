@@ -138,8 +138,8 @@ export function CustomerForm({
           <div className="flex items-center gap-2">
             <Input
               id="vcNo"
-              placeholder="11-character VC No"
-              maxLength={11}
+              placeholder="20-character VC No"
+              maxLength={20}
               aria-invalid={!!form.formState.errors.vcNo}
               {...form.register("vcNo")}
             />
