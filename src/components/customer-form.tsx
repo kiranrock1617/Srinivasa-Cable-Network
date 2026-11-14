@@ -136,13 +136,27 @@ export function CustomerForm({
         <div className="space-y-2">
           <Label htmlFor="vcNo">VC No</Label>
           <div className="flex items-center gap-2">
-            <Input
-              id="vcNo"
-              placeholder="20-character VC No"
-              maxLength={20}
-              aria-invalid={!!form.formState.errors.vcNo}
-              {...form.register("vcNo")}
-            />
+            <div className="relative flex-1">
+              <Input
+                id="vcNo"
+                placeholder="20-character VC No"
+                maxLength={20}
+                aria-invalid={!!form.formState.errors.vcNo}
+                {...form.register("vcNo")}
+                className="pr-8" // Added padding so text doesn't overlap the icon
+              />
+              {/* Conditionally show the clear button if there is text */}
+              {form.watch("vcNo") && (
+                <button
+                  type="button"
+                  onClick={() => form.setValue("vcNo", "", { shouldDirty: true, shouldValidate: true })}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  aria-label="Clear VC No"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
             <VcScanner
               disabled={submitting}
               onResult={(value) =>
