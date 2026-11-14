@@ -140,7 +140,7 @@ export function CustomerForm({
               <Input
                 id="vcNo"
                 placeholder="20-character VC No"
-                //maxLength={20}
+                //maxLength={20}//
                 aria-invalid={!!form.formState.errors.vcNo}
                 {...form.register("vcNo")}
                 className="pr-8" // Added padding so text doesn't overlap the icon
