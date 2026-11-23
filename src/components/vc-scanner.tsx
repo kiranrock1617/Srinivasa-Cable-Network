@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Camera, X, Loader2, ScanText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -20,14 +21,10 @@ export type VcScannerProps = {
 };
 
 function extractVcNumber(raw: string): string | null {
-  // Remove spaces, dashes, newlines and uppercase
   const compact = raw.toUpperCase().replace(/[\s-]+/g, "");
-
-  // Match T followed by exactly 12 digits (13 chars total, e.g. T403243989171)
   const match = compact.match(/T[0-9OISB]{12}/);
   if (!match) return null;
 
-  // Fix common OCR mistakes in the numeric part
   const digits = match[0]
     .slice(1)
     .replace(/O/g, "0")
@@ -63,7 +60,6 @@ export function VcScanner({ onResult, disabled }: VcScannerProps) {
       const vw = video.videoWidth;
       const vh = video.videoHeight;
 
-      // Crop to the center region matching the green guide box
       const cropW = vw * 0.75;
       const cropH = vh * 0.35;
       const cropX = (vw - cropW) / 2;
@@ -124,7 +120,6 @@ export function VcScanner({ onResult, disabled }: VcScannerProps) {
         await video.play();
         setStatus("scanning");
 
-        // Auto-scan barcodes in background if supported
         if (window.BarcodeDetector) {
           const detector = new window.BarcodeDetector({
             formats: [
@@ -190,63 +185,69 @@ export function VcScanner({ onResult, disabled }: VcScannerProps) {
         <Camera className="h-4 w-4" />
       </Button>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Scan VC number"
-        >
-          <div className="w-full max-w-sm overflow-hidden rounded-xl bg-card shadow-xl">
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <p className="text-sm font-semibold text-foreground">Scan VC number</p>
-              <button
-                type="button"
-                onClick={stop}
-                aria-label="Close scanner"
-                className="rounded-md p-1 text-muted-foreground hover:bg-muted"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      {open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-3"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Scan VC number"
+          >
+            <div className="flex max-h-[90dvh] w-full max-w-sm flex-col overflow-hidden rounded-xl bg-card shadow-xl">
+              {/* Header */}
+              <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
+                <p className="text-sm font-semibold text-foreground">Scan VC number</p>
+                <button
+                  type="button"
+                  onClick={stop}
+                  aria-label="Close scanner"
+                  className="rounded-md p-1 text-muted-foreground hover:bg-muted"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
 
-            <div className="relative aspect-[4/3] bg-black">
-              <video ref={videoRef} className="h-full w-full object-cover" playsInline muted />
-              {(status === "starting" || status === "reading") && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/50 text-white">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                  {status === "reading" && <span className="text-xs">Reading text...</span>}
-                </div>
-              )}
-              {status === "scanning" && (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                  <div className="h-24 w-64 rounded-lg border-2 border-emerald-400/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
-                </div>
-              )}
-              {status === "error" && (
-                <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-sm text-white">
-                  Camera unavailable. Please allow camera permission in browser settings.
-                </div>
-              )}
-            </div>
+              {/* Camera Preview */}
+              <div className="relative h-64 w-full shrink bg-black sm:h-72">
+                <video ref={videoRef} className="h-full w-full object-cover" playsInline muted />
+                {(status === "starting" || status === "reading") && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/50 text-white">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                    {status === "reading" && <span className="text-xs">Reading text...</span>}
+                  </div>
+                )}
+                {status === "scanning" && (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    <div className="h-24 w-64 rounded-lg border-2 border-emerald-400/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
+                  </div>
+                )}
+                {status === "error" && (
+                  <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-sm text-white">
+                    Camera unavailable. Please allow camera permission in browser settings.
+                  </div>
+                )}
+              </div>
 
-            <div className="space-y-2 px-4 py-3">
-              <Button
-                type="button"
-                onClick={handleScanText}
-                disabled={status !== "scanning"}
-                className="w-full gap-2"
-              >
-                <ScanText className="h-4 w-4" />
-                {status === "reading" ? "Reading Text..." : "Capture & Read Text"}
-              </Button>
-              <p className="text-center text-xs text-muted-foreground">
-                Barcodes scan automatically. For printed, screen, or written text, align the T-number inside the green box and tap Capture.
-              </p>
+              {/* Footer with Capture Button */}
+              <div className="shrink-0 space-y-2 border-t border-border bg-card px-4 py-3">
+                <Button
+                  type="button"
+                  onClick={handleScanText}
+                  disabled={status !== "scanning"}
+                  className="w-full gap-2"
+                >
+                  <ScanText className="h-4 w-4" />
+                  {status === "reading" ? "Reading Text..." : "Capture & Read Text"}
+                </Button>
+                <p className="text-center text-xs text-muted-foreground">
+                  Barcodes scan automatically. For printed, screen, or written text, align the T-number inside the green box and tap Capture.
+                </p>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </>
   );
 }
